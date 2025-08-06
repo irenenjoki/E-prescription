@@ -2,169 +2,186 @@
 session_start();
 require 'db.php';
 
-if (!isset($_SESSION['user_id'])) {
-    die("Not logged in.");
+if (!isset($_SESSION['patient_id'])) {
+    header("Location: login.html");
+    exit();
 }
 
-$user_id = $_SESSION['user_id'];
-echo "Logged in as user ID: $user_id<br>"; // DEBUG
-
+$patientId = $_SESSION['patient_id'];
 $stmt = $pdo->prepare("SELECT fullname, email FROM users WHERE id = ?");
-$stmt->execute([$user_id]);
-$doctor = $stmt->fetch(PDO::FETCH_ASSOC);
+$stmt->execute([$patientId]);
+$user = $stmt->fetch();
 
-if (!$doctor) {
-    die("User with ID $user_id not found in DB.");
+if (!$user) {
+    echo "User not found.";
+    exit();
 }
+
+$names = explode(" ", $user['fullname']);
+$initials = strtoupper(substr($names[0], 0, 1) . (isset($names[1]) ? substr($names[1], 0, 1) : ''));
 ?>
-
-
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Doctor Profile</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-      <link rel="icon" type="image/png" href="patient/E.webp">
-
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rubik:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <meta charset="UTF-8" />
+  <title>My Profile</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+      <link rel="icon" type="image/jpg" href="patient\E.jpg">
 
   <style>
     body {
-      margin: 0;
-      padding: 0;
-      background: radial-gradient(circle at top right, #1a1a40, #000);
-      color: #f1f1f1;
-      font-family: 'Rubik', sans-serif;
+      font-family: 'Poppins', sans-serif;
+      background: radial-gradient(ellipse at top left, #050505, #0c0c1e, #1a1a2e);
+      color: #d1d1d1;
+      overflow-x: hidden;
     }
+
+    .sidebar {
+      background: rgba(10, 10, 25, 0.85);
+      backdrop-filter: blur(25px);
+      border-right: 1px solid rgba(255,255,255,0.04);
+      box-shadow: 4px 0 40px rgba(0,0,0,0.8);
+      color: white;
+      width: 260px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      padding: 40px 20px;
+      height: 100vh;
+      border-radius: 0 20px 20px 0;
+    }
+
+    .sidebar h4 {
+      text-align: center;
+      margin-bottom: 30px;
+      font-weight: 700;
+      color: #0fffd7;
+    }
+
+    .sidebar a {
+      color: white;
+      padding: 12px 20px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+      transition: all 0.3s ease;
+      font-size: 1rem;
+      text-decoration: none;
+    }
+
+    .sidebar a i {
+      margin-right: 12px;
+    }
+
+    .sidebar a:hover, .sidebar a.active {
+      background: rgba(255, 255, 255, 0.15);
+      transform: translateX(6px);
+    }
+
+    .content {
+      margin-left: 280px;
+      padding: 60px 40px;
+    }
+
     .top-bar {
-      background-color: #00332f;
-      padding: 15px 30px;
+      background: rgba(20, 20, 40, 0.8);
+      box-shadow: 0 0 40px rgba(0,0,0,0.6);
+      border-radius: 16px;
+      padding: 25px 35px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      color: #e0f2f1;
     }
-    .profile-container {
-      max-width: 900px;
-      margin: 60px auto;
-      background: linear-gradient(135deg, #2b2b3c 0%, #191933 100%);
-      padding: 50px;
+
+    .profile-card {
+      background: linear-gradient(145deg, rgba(20, 20, 40, 0.8), rgba(10, 10, 25, 0.8));
+      backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: 20px;
-      box-shadow: 0 0 40px rgba(0,255,200,0.1);
-      border: 2px solid rgba(0, 209, 178, 0.3);
-      animation: fadeIn 1s ease-out;
-    }
-    .profile-header {
+      padding: 40px 30px;
+      max-width: 600px;
+      margin: 60px auto;
+      color: #e6f1ff;
+      box-shadow: 0 12px 36px rgba(0,0,0,0.75);
       text-align: center;
-      margin-bottom: 40px;
     }
-    .profile-header h2 {
-      font-family: 'Orbitron', sans-serif;
-      font-weight: bold;
-      font-size: 2.5rem;
-      color: #00ffe7;
-      text-shadow: 0 0 10px rgba(0,255,230,0.7);
-    }
-    .form-label {
-      color: #ccc;
-      font-weight: 500;
-    }
-    .form-control {
-      background-color: #222;
-      border: 1px solid #555;
-      color: #f1f1f1;
-      border-radius: 10px;
-      transition: all 0.3s;
-    }
-    .form-control:focus {
-      border-color: #00ffe7;
-      box-shadow: 0 0 10px rgba(0, 255, 230, 0.4);
-      background-color: #1a1a1a;
-    }
-    .btn-custom {
-      background: linear-gradient(135deg, #00ffe7, #00b7c2);
+
+    .avatar-initials {
+      background: #0fffd7;
       color: #000;
-      font-weight: bold;
-      border: none;
-      padding: 12px 30px;
-      border-radius: 30px;
-      box-shadow: 0 4px 20px rgba(0,255,230,0.3);
-      transition: transform 0.2s ease-in-out;
+      width: 90px;
+      height: 90px;
+      font-size: 2rem;
+      font-weight: 700;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      box-shadow: 0 0 20px rgba(0, 255, 204, 0.4);
     }
-    .btn-custom:hover {
-      transform: scale(1.05);
-      background: linear-gradient(135deg, #00e6d2, #009faa);
+
+    .profile-card h3 {
+      color: #0fffd7;
+      text-shadow: 0 0 6px #0fffd7, 0 0 12px rgba(0, 255, 204, 0.2);
+      margin-bottom: 10px;
     }
-    .btn-outline-light {
-      border-radius: 30px;
+
+    .info-label {
+      font-weight: 600;
+      color: #aaa;
+      margin-top: 20px;
     }
-    .footer-link {
-      text-align: center;
-      margin-top: 40px;
-      display: block;
-      color: #888;
-      text-decoration: none;
-      font-weight: 500;
-    }
-    .footer-link:hover {
-      color: #fff;
-      text-shadow: 0 0 5px #00ffe7;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
+
+    .info-text {
+      font-size: 1.1rem;
+      color: #f1f1f1;
     }
   </style>
 </head>
 <body>
+
+<div class="sidebar">
+  <h4>✨ Patient Portal ✨</h4>
+  <a href="dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+  <a href="Appointment.php"><i class="fas fa-calendar-alt"></i> Appointments</a>
+  <a href="medicines.php"><i class="fas fa-capsules"></i> Medicines</a>
+  <a href="diagnosis.php"><i class="fas fa-stethoscope"></i> Diagnosis</a>
+  <a href="prescriptions.php"><i class="fas fa-prescription-bottle-alt"></i> Prescriptions</a>
+  <a href="doctor.php"><i class="fas fa-user-md"></i> Doctor Info</a>
+  <a href="profile.php" class="active"><i class="fas fa-user"></i> Profile</a>
+</div>
+
+<div class="content">
   <div class="top-bar">
-    <h5 class="mb-0">Doctor Profile</h5>
-    <div class="dropdown">
-      <a class="d-flex align-items-center text-decoration-none dropdown-toggle" href="#" id="doctorDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-        <span><?= htmlspecialchars($doctor['fullname']) ?></span>
-      </a>
-      <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="doctorDropdown">
-        <li><a class="dropdown-item" href="login.html"><i class="fas fa-sign-in-alt me-2"></i>Login</a></li>
-        <li><hr class="dropdown-divider"></li>
-        <li><a class="dropdown-item" href="logout.php"><i class="fas fa-sign-out-alt me-2"></i>Sign Out</a></li>
-      </ul>
-    </div>
-  </div>
-
-  <div class="container">
-    <div class="profile-container">
-      <div class="profile-header">
-        <h2><i class="fas fa-user-md me-2"></i>Doctor Profile</h2>
+    <h5 class="mb-0 text-light">My Profile</h5>
+    <div class="text-end">
+        <div class="dropdown">
+        <a class="d-flex align-items-center text-decoration-none dropdown-toggle" href="#" id="doctorDropdown" data-bs-toggle="dropdown">
+      <span>Welcome, <strong><?php echo htmlspecialchars($user['fullname']); ?></strong></span></a>
+       <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="doctorDropdown">
+          <li><a class="dropdown-item" href="login.html"><i class="fas fa-sign-in-alt me-2"></i> Login</a></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><a class="dropdown-item" href="login.html"><i class="fas fa-sign-out-alt me-2"></i> Sign Out</a></li>
+        </ul>
       </div>
-      <form action="update_profile.php" method="POST">
-        <div class="row g-4">
-          <div class="col-md-6">
-            <label for="fullname" class="form-label">Full Name</label>
-            <input type="text" class="form-control" id="fullname" name="fullname" value="<?= htmlspecialchars($doctor['fullname']) ?>" required>
-          </div>
-          <div class="col-md-6">
-            <label for="email" class="form-label">Email</label>
-            <input type="email" class="form-control" id="email" name="email" value="<?= htmlspecialchars($doctor['email']) ?>" required>
-          </div>
-        </div>
-        <div class="d-flex justify-content-between align-items-center mt-5">
-          <button type="submit" class="btn btn-custom">Update Profile</button>
-          <a href="change_password.php" class="btn btn-outline-light">Change Password</a>
-        </div>
-      </form>
-      <a href="dashboard.php" class="footer-link"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
- <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
- <?php include 'footer.php'; ?>
+  <div class="profile-card">
+    <div class="avatar-initials"><?php echo $initials; ?></div>
+    <h3><?php echo htmlspecialchars($user['fullname']); ?></h3>
+    <div class="info-label">Email Address</div>
+    <div class="info-text"><?php echo htmlspecialchars($user['email']); ?></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 </body>
 </html>
- 
