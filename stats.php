@@ -28,4 +28,3 @@ $stmt->execute([$doctorName]);
 $patients = $stmt->fetchColumn();
 
 echo json_encode(['appointments' => $appointments, 'patients' => $patients]);
- 

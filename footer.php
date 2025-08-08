@@ -40,6 +40,21 @@
 </footer>
 
 <style>
+    html, body {
+  height: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+body {
+  min-height: 100vh;
+}
+
+main {
+  flex: 1; /* Fills remaining space */
+}
+
   .neon-footer {
     background: linear-gradient(135deg,rgb(0, 14, 11),rgb(0, 19, 19));
     backdrop-filter: blur(12px);

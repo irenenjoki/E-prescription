@@ -1,4 +1,5 @@
 <?php
+session_name("doctor_session");
 require 'db.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id'])) {

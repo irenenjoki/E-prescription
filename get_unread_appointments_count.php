@@ -1,13 +1,14 @@
 <?php
+session_name("doctor_session");
 session_start();
 require 'db.php';
 
-if (!isset($_SESSION['user_id'])) {
+if (!isset($_SESSION['doctor_id'])) {
     echo json_encode(['count' => 0]);
     exit();
 }
 
-$userId = $_SESSION['user_id'];
+$userId = $_SESSION['doctor_id'];
 $stmt = $pdo->prepare("SELECT fullname FROM users WHERE id = ?");
 $stmt->execute([$userId]);
 $user = $stmt->fetch();

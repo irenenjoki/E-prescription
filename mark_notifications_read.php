@@ -1,4 +1,5 @@
 <?php
+session_name("doctor_session");
 session_start();
 require 'db.php';
 

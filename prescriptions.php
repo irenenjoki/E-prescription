@@ -1,297 +1,273 @@
 <?php
-session_name("patient_session");
+session_name("doctor_session");
 
 session_start();
 require 'db.php';
+if (isset($_GET['appointment_id'])) {
+    $appointmentId = $_GET['appointment_id'];
 
-if (!isset($_SESSION['patient_id']) || $_SESSION['role'] !== 'patient') {
+    // Mark the appointment as viewed
+    $stmt = $pdo->prepare("UPDATE appointments SET viewed = 1 WHERE id = ?");
+    $stmt->execute([$appointmentId]);
+}
+if (!isset($_SESSION['doctor_id'])) {
     header("Location: login.html");
     exit();
 }
-$timeout = 900;
 
-if (isset($_SESSION['LAST_ACTIVITY']) && (time() - $_SESSION['LAST_ACTIVITY']) > $timeout) {
-    // Session expired
-    session_unset();
-    session_destroy();
-    header("Location: login.html?timeout=1");
-    exit();
+$patientId = $_SESSION['doctor_id'];
+if (!isset($_GET['appointment_id'])) {
+    die("No appointment selected.");
 }
 
-$_SESSION['LAST_ACTIVITY'] = time(); // update last activity
-// Fetch patient full name
-$stmt = $pdo->prepare("SELECT fullname FROM users WHERE id = ?");
-$stmt->execute([$_SESSION['patient_id']]);
-$user = $stmt->fetch();
-$patientName = $user ? htmlspecialchars($user['fullname']) : 'Patient';
+$appointment_id = $_GET['appointment_id'];
 
-// Fetch prescriptions for this patient
-$prescriptionStmt = $pdo->prepare("SELECT * FROM prescriptions WHERE patient_name = ? ORDER BY date_prescribed DESC");
-$prescriptionStmt->execute([$patientName]);
-$prescriptions = $prescriptionStmt->fetchAll(PDO::FETCH_ASSOC);
-$ageStmt = $pdo->prepare("SELECT age FROM appointments WHERE patient_name = ? ORDER BY appointment_date DESC");
-$ageStmt->execute([$patientName]);
-$ageResult = $ageStmt->fetch();
-$patientAge = $ageResult ? $ageResult['age'] : 'N/A';
+$stmt = $pdo->prepare("SELECT * FROM appointments WHERE id = ?");
+$stmt->execute([$appointment_id]);
+$appointment = $stmt->fetch();
+
+if (!$appointment) {
+    die("Appointment not found.");
+}
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Prescriptions</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-      <link rel="icon" type="image/jpg" href="patient\E.jpg">
+    <meta charset="UTF-8">
+    <title>Add Diagnosis & Prescription</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Rubik', sans-serif;
+            background: linear-gradient(to right top, #0f2027, #203a43, #2c5364);
+            color: #e0e0e0;
+            margin: 0;
+            padding: 0;
+            display: flex;
+        }
 
-  <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: radial-gradient(ellipse at top left, #050505, #0c0c1e, #1a1a2e);
-      color:rgb(3, 90, 112);
-      overflow-x: hidden;
-    }
+        .sidebar {
+            width: 250px;
+            min-height: 100vh;
+            background: linear-gradient(180deg, #004d40, #001f1c);
+            padding-top: 30px;
+        }
 
-    .sidebar {
-      background: rgba(10, 10, 25, 0.85);
-      backdrop-filter: blur(25px);
-      border-right: 1px solid rgba(255,255,255,0.04);
-      box-shadow: 4px 0 40px rgba(0,0,0,0.8);
-      color: white;
-      width: 260px;
-      position: fixed;
-      top: 0;
-      left: 0;
-      padding: 40px 20px;
-      height: 100vh;
-      border-radius: 0 20px 20px 0;
-    }
+        .sidebar h4 {
+            font-weight: 700;
+            color: #ffffff;
+            text-align: center;
+            margin-bottom: 30px;
+        }
 
-    .sidebar h4 {
-      text-align: center;
-      margin-bottom: 30px;
-      font-weight: 700;
-      color: #0fffd7;
-    }
+        .sidebar a {
+            color: #b2dfdb;
+            display: block;
+            padding: 12px 20px;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
 
-    .sidebar a {
-      color: white;
-      padding: 12px 20px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      margin-bottom: 12px;
-      transition: all 0.3s ease;
-      font-size: 1rem;
-      text-decoration: none;
-    }
+        .sidebar a:hover, .sidebar a.active {
+            background: rgba(255, 255, 255, 0.15);
+            border-left: 4px solid #00ffe7;
+            color: #ffffff;
+        }
 
-    .sidebar a i {
-      margin-right: 12px;
-    }
+        .main-content {
+            flex-grow: 1;
+            padding: 40px;
+        }
 
-    .sidebar a:hover,
-    .sidebar a.active {
-      background: rgba(255, 255, 255, 0.15);
-      transform: translateX(6px);
-    }
+        .form-container {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            margin: auto;
+        }
 
-    .content {
-      margin-left: 280px;
-      padding: 60px 40px;
-    }
+        h2 {
+            text-align: center;
+            color: #00ffe7;
+            margin-bottom: 25px;
+        }
 
-    .top-bar {
-      background: rgba(20, 20, 40, 0.8);
-      box-shadow: 0 0 40px rgba(0,0,0,0.6);
-      border-radius: 16px;
-      padding: 25px 35px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
+        form label {
+            display: block;
+            margin-top: 15px;
+            font-weight: 600;
+            color: #b2dfdb;
+        }
 
-    .top-bar img {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      object-fit: cover;
-    }
+        input[type="text"],
+        input[type="email"],
+        textarea {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border-radius: 8px;
+            border: 1px solid #00ffe7;
+            background: rgba(255, 255, 255, 0.08);
+            color: #e0e0e0;
+            box-sizing: border-box;
+        }
 
-    .top-bar span {
-      margin: 0 15px;
-      font-size: 1.1rem;
-    }
+        input[readonly] {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: #cccccc;
+        }
 
-    .btn-teal {
-      background-color: #008080;
-      color: white;
-      border: none;
-    }
+        textarea {
+            resize: vertical;
+        }
 
-    .btn-teal:hover {
-      background-color: #006666;
-      color: white;
-    }
+        button {
+            margin-top: 25px;
+            padding: 12px;
+            background-color: #00bfa5;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            transition: background-color 0.3s ease;
+        }
 
-    .prescription-print {
-      background: navy blue;
-      color: white;
-      font-family: 'Times New Roman', Times, serif;
-      border: 1px solid #ccc;
-      padding: 30px;
-      max-width: 700px;
-      margin: auto;
-      box-shadow: 0 0 15px rgba(0,0,0,0.1);
-    }
-
-    .prescription-print h3 {
-      color: teal;
-    }
-
-    .prescription-print ul {
-      list-style-type: disc;
-      padding-left: 20px;
-    }
-
-    .prescription-print img {
-      height: 50px;
-    }
-
-    @media print {
-      body * {
-        visibility: hidden;
-      }
-      .prescription-print, .prescription-print * {
-        visibility: visible;
-      }
-      .prescription-print {
-        position: absolute;
-        left: 0;
-        top: 0;
-      }
-    }
-  </style>
+        button:hover {
+            background-color: #00796b;
+        }
+    </style>
 </head>
 <body>
-  <div class="sidebar">
-    <h4>✨ Patient Portal ✨</h4>
-    <a href="dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-    <a href="appointment.php"><i class="fas fa-calendar-alt"></i> Appointments</a>
-    <a href="prescriptions.php" class="active"><i class="fas fa-prescription-bottle-alt"></i> Prescriptions</a>
-      <a href="diagnosis.php" ><i class="fas fa-stethoscope"></i> Diagnosis</a>
-    <a href="doctor.php"><i class="fas fa-user-md"></i> Doctor Info</a>
-  </div>
+    <div class="sidebar">
+        <h4>Doctor's Portal</h4>
+        <a href="dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+        <a href="appointments.php" class="active"><i class="fas fa-calendar-alt"></i> Future Appointments</a>
+                <a href="diagnosis.php" ><i class="fas fa-notes-medical"></i> Diagnosis</a>
+                        <a href="diagnosis.php" ><i class="fas fa-notes-medical"></i> Diagnosis</a>
+        <a href="Patient History Page.php"><i class="fas fa-prescription-bottle-alt"></i> Patient History</a>
 
-  <div class="content">
-    <div class="top-bar">
-      <h5 class="mb-0 text-light">Your Prescriptions</h5>
-      <div class="dropdown">
-        <a class="d-flex align-items-center text-decoration-none dropdown-toggle" href="#" id="doctorDropdown" data-bs-toggle="dropdown">
-          <span><?php echo $patientName; ?></span>
-        </a>
-        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="doctorDropdown">
-          <li><a class="dropdown-item" href="profile.php"><i class="fas fa-user me-2"></i> Profile</a></li>
-          <li><a class="dropdown-item" href="login.html"><i class="fas fa-sign-in-alt me-2"></i> Login</a></li>
-          <li><hr class="dropdown-divider"></li>
-          <li><a class="dropdown-item" href="login.html"><i class="fas fa-sign-out-alt me-2"></i> Sign Out</a></li>
-        </ul>
-      </div>
     </div>
 
-    <div class="mt-5" >
-      <?php if ($prescriptions): ?>
-        <?php foreach ($prescriptions as $prescription): ?>
-          <div class="prescription-print mb-5" id="printable-prescription-<?= $prescription['id'] ?>">
-            <div class="text-center mb-4">
-              <h3 class="fw-bold">Dr. <?= htmlspecialchars($prescription['prescribed_by']) ?>, MD</h3>
-              <p class="mb-0">License No: DOC123456789</p>
-              <p class="mb-0">City Health Hospital</p>
-            </div>
+    <div class="main-content">
+        <div class="form-container">
+            <h2>Diagnosis & Prescription</h2>
+            <form method="POST" action="add_prescription.php"  id="prescriptionForm">
+                <input type="hidden" name="patient_id" value="<?= htmlspecialchars($_SESSION['doctor_id']) ?>">
 
-            <div class="mb-3">
-  <strong>Patient Name:</strong> <?= htmlspecialchars($prescription['patient_name']) ?><br>
-<strong>Age:</strong> <?= htmlspecialchars($patientAge) ?><br>
-  <strong>Prescribed By:</strong> <?= htmlspecialchars($prescription['prescribed_by']) ?><br>
-  <strong>Date Prescribed:</strong> <?= htmlspecialchars($prescription['date_prescribed']) ?><br>
-  <strong>Created At:</strong> <?= htmlspecialchars($prescription['created_at']) ?><br>
-</div>
+                <label>Patient Name</label>
+                <input type="text" name="patient_name" value="<?= htmlspecialchars($appointment['patient_name']) ?>" readonly>
 
-<div class="border p-3" style="border-style: dotted;">
-  <h5 class="fw-bold">Rx:</h5>
-  <ul class="mb-2">
-    <li><strong>Medicine Name:</strong> <?= htmlspecialchars($prescription['medicine_name']) ?></li>
-    <li><strong>Dosage:</strong> <?= htmlspecialchars($prescription['dosage']) ?></li>
-    <li><strong>Frequency:</strong> <?= htmlspecialchars($prescription['frequency']) ?></li>
-    <li><strong>Duration:</strong> <?= htmlspecialchars($prescription['duration']) ?></li>
-    <li><strong>Prescription Notes:</strong> <?= htmlspecialchars($prescription['prescription']) ?: 'N/A' ?></li>
-    <li><strong>Doctor Notes:</strong> <?= htmlspecialchars($prescription['notes']) ?: 'N/A' ?></li>
-  </ul>
-</div>
+                <label>Date of Birth</label>
+                <input type="text" value="<?= htmlspecialchars($appointment['date_of_birth']) ?>" readonly>
 
+                <label>Age</label>
+                <input type="text" value="<?= htmlspecialchars($appointment['age']) ?>" readonly>
 
-            <div class="mt-4 d-flex justify-content-end">
-              <div class="text-end">
+                <label>Gender</label>
+                <input type="text" value="<?= htmlspecialchars($appointment['gender']) ?>" readonly>
+
+                <label>Contact Number</label>
+                <input type="text" value="<?= htmlspecialchars($appointment['phone']) ?>" readonly>
+
+                <label>Email Address</label>
+                <input type="email" value="<?= htmlspecialchars($appointment['email']) ?>" readonly>
+
+                <label>Address</label>
+                <input type="text" value="<?= htmlspecialchars($appointment['address']) ?>" readonly>
+
+                <label>Date of Appointment</label>
+                <input type="text" value="<?= htmlspecialchars($appointment['appointment_date']) ?>" readonly>
+
+                <label>Time of Appointment</label>
+                <input type="text" value="<?= htmlspecialchars($appointment['time_slot']) ?>" readonly>
+
+                <label>Reason for Appointment</label>
+                <input type="text" value="<?= htmlspecialchars($appointment['reason']) ?>" readonly>
+
                 
-              </div>
-            </div>
+ <div>
+    <label for="medicine_name">Medicine Name:</label>
+    <input type="text" id="medicine_name" name="medicine_name" required>
+  </div>
+                
+ 
 
-            <div class="text-center mt-3">
-              <button class="btn btn-teal" onclick="printPrescription('printable-prescription-<?= $prescription['id'] ?>')">
-                <i class="fas fa-print me-2"></i> Print Prescription
-              </button>
-            </div>
-          </div>
-        <?php endforeach; ?>
-      <?php else: ?>
-        <div class="alert alert-warning">You have no prescriptions yet.</div>
-      <?php endif; ?>
-    </div>
+  <div>
+    <label for="dosage">Dosage:</label>
+    <input type="text" id="dosage" name="dosage" required>
   </div>
 
- <script>
-function printPrescription(id) {
-  const content = document.getElementById(id).outerHTML;
+  <div>
+    <label for="frequency">Frequency:</label>
+    <input type="text" id="frequency" name="frequency" required>
+  </div>
 
-  const style = `
-    <style>
-      body {
-        font-family: 'Times New Roman', Times, serif;
-        padding: 40px;
-        background-color: #0d2b2d;
-        color: #e0ffff;
-      }
-      .prescription-print {
-        background: #0d2b2d;
-        color: #e0ffff;
-        padding: 30px;
-        max-width: 700px;
-        margin: auto;
-        border: 1px solid #008080;
-        box-shadow: 0 0 15px rgba(0,255,255,0.3);
-      }
-      .prescription-print h3 {
-        color: #00ffff;
-      }
-      .prescription-print ul {
-        list-style-type: disc;
-        padding-left: 20px;
-      }
-    </style>
-  `;
+  <div>
+    <label for="duration">Duration:</label>
+    <input type="text" id="duration" name="duration" required>
+  </div>
 
-  const printWindow = window.open('', '', 'width=800,height=600');
-  printWindow.document.write(`<html><head><title>Print Prescription</title>${style}</head><body>${content}</body></html>`);
-  printWindow.document.close();
-  printWindow.focus();
-  printWindow.print();
-  printWindow.close();
-}
+  <label>Prescription Notes</label>
+                <textarea name="prescription" rows="4" required></textarea>
+
+  <div>
+    <label for="prescribed_by">Prescribed By (Doctor):</label>
+    <input type="text" id="prescribed_by" name="prescribed_by" required>
+  </div>
+
+  <button type="submit">Submit Prescription</button>
+</form>
+
+                
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+document.getElementById('prescriptionForm').addEventListener('submit', function(e) {
+    e.preventDefault(); // prevent default form submission
+
+    const form = this;
+    const formData = new FormData(form);
+
+    fetch('add_prescription.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            Swal.fire({
+                title: 'Success!',
+                text: 'Prescription added successfully.',
+                icon: 'success',
+                confirmButtonText: 'OK'
+            });
+
+            // Optional: Reset form
+            form.reset();
+        } else {
+            Swal.fire({
+                title: 'Error!',
+                text: 'Failed to add prescription. Please try again.',
+                icon: 'error'
+            });
+        }
+    })
+    .catch(() => {
+        Swal.fire({
+            title: 'Oops!',
+            text: 'Something went wrong with the request.',
+            icon: 'error'
+        });
+    });
+});
 </script>
 
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 </body>
 </html>

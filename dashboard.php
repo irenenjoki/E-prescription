@@ -1,312 +1,256 @@
 <?php
-session_name("patient_session");
+session_name("doctor_session");
 session_start();
 require 'db.php';
 
-// ✅ Make sure user is logged in and is a patient
-if (!isset($_SESSION['patient_id']) || $_SESSION['role'] !== 'patient') {
+// Confirm session is valid and doctor is logged in
+if (!isset($_SESSION['doctor_id']) || $_SESSION['role'] !== 'doctor') {
     header("Location: login.html");
     exit();
 }
 
-$userId = $_SESSION['patient_id'];
+$userId = $_SESSION['doctor_id'];
 
 $stmt = $pdo->prepare("SELECT fullname FROM users WHERE id = ?");
-$stmt->execute([$_SESSION['patient_id']]);
+$stmt->execute([$userId]);
 $user = $stmt->fetch();
-$patientName = $user ? htmlspecialchars($user['fullname']) : 'Patient';
+
+if (!$user) {
+    $user = ['fullname' => 'Unknown'];
+}
+
+// Count total patients
+// Count total patients
+$totalPatientsStmt = $pdo->prepare("SELECT COUNT(*) FROM appointments WHERE doctor_name = ?");
+$totalPatientsStmt->execute([$user['fullname']]);
+$totalPatients = $totalPatientsStmt->fetchColumn();
+
+// Count total diagnoses
+$totalDiagnoses = $pdo->query("SELECT COUNT(*) FROM diagnoses")->fetchColumn();
+
+// Count appointments booked with this doctor
+$appointmentsStmt = $pdo->prepare("SELECT COUNT(*) FROM appointments WHERE doctor_name = ?");
+$appointmentsStmt->execute([$user['fullname']]);
+$totalAppointments = $appointmentsStmt->fetchColumn();
+
+// Count total prescriptions
+$totalPrescriptions = $pdo->query("SELECT COUNT(*) FROM prescriptions")->fetchColumn();
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Patient Dashboard</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet"/>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="icon" type="image/jpg" href="patient\E.jpg">
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Doctor Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rubik:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="patient/E.webp">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <style>
     body {
-      font-family: 'Poppins', sans-serif;
-      background: radial-gradient(ellipse at top left, #050505, #0c0c1e, #1a1a2e);
-      color: #d1d1d1;
-      overflow-x: hidden;
+      font-family: 'Rubik', sans-serif;
+      background: radial-gradient(circle at top left, #121c2b, #0a0f18);
+      color: #e0e0e0;
+      margin: 0;
     }
-
     .sidebar {
-      background: rgba(10, 10, 25, 0.85);
-      backdrop-filter: blur(25px);
-      border-right: 1px solid rgba(255,255,255,0.04);
-      box-shadow: 4px 0 40px rgba(0,0,0,0.8);
-      color: white;
-      width: 260px;
-      position: fixed;
-      top: 0;
-      left: 0;
-      padding: 40px 20px;
-      height: 100vh;
-      border-radius: 0 20px 20px 0;
+      min-height: 100vh;
+      background: linear-gradient(180deg, #004d40, #001f1c);
+      padding-top: 30px;
     }
-
     .sidebar h4 {
-      text-align: center;
-      margin-bottom: 30px;
+      font-family: 'Orbitron', sans-serif;
       font-weight: 700;
-      color: #0fffd7;
     }
-
     .sidebar a {
-      color: white;
+      color: #b2dfdb;
+      font-weight: 500;
+      display: block;
       padding: 12px 20px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      margin-bottom: 12px;
-      transition: all 0.3s ease;
-      font-size: 1rem;
+      transition: all 0.2s ease;
       text-decoration: none;
     }
-
-    .sidebar a i {
-      margin-right: 12px;
-    }
-
     .sidebar a:hover, .sidebar a.active {
       background: rgba(255, 255, 255, 0.15);
-      transform: translateX(6px);
+      border-left: 4px solid #00ffe7;
+      color: #ffffff;
     }
-
-    .content {
-      margin-left: 280px;
-      padding: 60px 40px;
-    }
-
     .top-bar {
-      background: rgba(20, 20, 40, 0.8);
-      box-shadow: 0 0 40px rgba(0,0,0,0.6);
-      border-radius: 16px;
-      padding: 25px 35px;
+      background: #00332f;
+      padding: 15px 30px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      color: #e0f2f1;
+      border-bottom: 1px solid #004d40;
     }
-
-    .top-bar img {
-      width: 55px;
-      height: 55px;
-      border-radius: 50%;
-      object-fit: cover;
-    }
-
-    .top-bar span {
-      margin: 0 20px;
-      font-weight: 600;
-      font-size: 1.1rem;
-    }
-
-    .dashboard-heading h1 {
-      color: #0fffd7;
-      text-shadow: 0 0 6px #0fffd7, 0 0 12px rgba(0, 255, 204, 0.4);
-    }
-
-    .dashboard-heading p {
-      color: #b0b0b0;
-      font-weight: 300;
-    }
-
-    .card {
-      background: linear-gradient(145deg, rgba(20, 20, 40, 0.8), rgba(10, 10, 25, 0.8));
-      box-shadow: 0 12px 36px rgba(0,0,0,0.75);
-      backdrop-filter: blur(15px);
-      color: #e6f1ff;
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 18px;
-      transition: transform 0.3s ease, box-shadow 0.4s ease;
-    }
-
-    .card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 15px 50px rgba(0, 255, 255, 0.15);
-    }
-
-    .card .card-body {
-      padding: 32px;
-    }
-
-    .card h5 {
-      font-weight: 600;
-    }
-
-    .btn-primary, .btn-success, .btn-warning, .btn-danger, .btn-info {
-      background-color: rgba(0, 255, 204, 0.1);
-      border: 1px solid #0fffd7;
-      color: #0fffd7;
-      box-shadow: 0 0 10px rgba(0, 255, 204, 0.2);
+    .card-stats {
+      background: linear-gradient(145deg, #1f2933, #111827);
+      color: #e0e0e0;
+      border-radius: 15px;
+      box-shadow: 0 6px 20px rgba(0,255,230,0.05);
       transition: all 0.3s ease;
+      padding: 25px;
     }
-
-    .btn:hover {
-      background-color: #0fffd7;
-      color: #000;
-      transform: scale(1.08);
-      box-shadow: 0 0 20px #0fffd7;
+    .card-stats:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 25px rgba(0,255,230,0.15);
     }
-
-    .btn-lg {
-      font-size: 1.2rem;
-      padding: 14px 32px;
-      border-radius: 32px;
+    .card-stats h6 {
+      margin-top: 10px;
+      font-size: 1rem;
+      color: #90caf9;
     }
-
-    .mt-10 {
-      margin-top: 100px;
-      text-align: center;
+    .card-stats h4 {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 700;
+    }
+    .badge {
+      background: red;
+      color: white;
+      padding: 2px 5px;
+      border-radius: 50%;
+      font-size: 0.8rem;
     }
   </style>
 </head>
 <body>
-  <div class="sidebar">
-    <h4>✨ Patient Portal ✨</h4>
+<div class="d-flex">
+  <div class="sidebar p-3 text-white">
+    <h4 class="text-center">Doctor's Portal</h4>
     <a href="dashboard.php" class="active"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-    <a href="Appointment.php"><i class="fas fa-calendar-alt"></i> Appointments</a>
-    <a href="prescriptions.php"><i class="fas fa-prescription-bottle-alt"></i> Prescriptions</a>
-          <a href="diagnosis.php" ><i class="fas fa-stethoscope"></i> Diagnosis</a>
-    <a href="doctor.php"><i class="fas fa-user-md"></i> Doctor Info</a>
+    <a href="appointments.php"><i class="fas fa-calendar-alt"></i> Future Appointments</a>
+        <a href="diagnosis.php" ><i class="fas fa-notes-medical"></i> Diagnosis</a>
+
+    <a href="Patient History Page.php"><i class="fas fa-prescription-bottle-alt"></i> Patient History</a>
   </div>
 
-  <div class="content">
+  <div class="flex-grow-1">
     <div class="top-bar">
-      <h5 class="mb-0 text-light">Patient Dashboard</h5> 
-      <button id="notifyBtn" class="btn btn-sm btn-outline-info position-relative">
-        <i class="fas fa-bell"></i>
-        <span id="notifBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="display:none;">!</span>
-      </button>
+      <h5 class="mb-0">Dashboard</h5>
+      <!-- Notification Bell -->
+<!-- Bell Button -->
+<button id="notifBell" class="btn btn-outline-light position-relative">
+  🔔
+  <span id="notifCount" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="display:none;">
+    0
+  </span>
+</button>
+
+
+
       <div class="dropdown">
-        <a class="d-flex align-items-center text-decoration-none dropdown-toggle" href="#" id="doctorDropdown" data-bs-toggle="dropdown">
-          <span><?php echo $patientName; ?></span>
+        <a class="d-flex align-items-center text-decoration-none dropdown-toggle" href="#" id="doctorDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+          <span><?= htmlspecialchars($user['fullname']) ?></span>
         </a>
         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="doctorDropdown">
-          <li><a class="dropdown-item" href="profile.php"><i class="fas fa-user me-2"></i> Profile</a></li>
-          <li><a class="dropdown-item" href="login.html"><i class="fas fa-sign-in-alt me-2"></i> Login</a></li>
+          <li><a class="dropdown-item" href="profile.php"><i class="fas fa-user me-2"></i>Profile</a></li>
+          <li><a class="dropdown-item" href="login.html"><i class="fas fa-sign-in-alt me-2"></i>Login</a></li>
           <li><hr class="dropdown-divider"></li>
-          <li><a class="dropdown-item" href="login.html"><i class="fas fa-sign-out-alt me-2"></i> Sign Out</a></li>
+          <li><a class="dropdown-item" href="logout.php"><i class="fas fa-sign-out-alt me-2"></i>Sign Out</a></li>
         </ul>
       </div>
     </div>
 
-    <div class="dashboard-heading mt-5">
-      <h1>Welcome, <?php echo $patientName; ?>!</h1>
-      <p>Your galaxy of health insights awaits ✨</p>
-    </div>
-
-    <div class="row mt-5 g-4">
-      <div class="col-md-4">
-        <div class="card">
-          <div class="card-body">
-            <h5>Appointments</h5>
-            <p></p>
-            <a href="Appointment.php" class="btn btn-primary">Make An Appointment</a>
+    <div class="content p-4">
+      <div class="row g-4">
+        <div class="col-md-3">
+          <div class="card card-stats text-center">
+            <i class="fas fa-users fa-2x text-info mb-2"></i>
+            <h6>Patients</h6>
+            <h4><?= $totalPatients ?></h4>
           </div>
         </div>
-      </div>
-
-      <div class="col-md-4">
-        <div class="card">
-          <div class="card-body">
-            <h5>Prescriptions</h5>
-            <a href="prescriptions.php" class="btn btn-success">View Prescriptions</a>
-          </div>
+        <div class="col-md-3">
+          <a href="appointments.php" class="text-decoration-none text-white">
+            <div class="card card-stats text-center">
+              <i class="fas fa-calendar-check fa-2x text-warning mb-2"></i>
+              <h6>Appointments</h6>
+              <h4><?= $totalAppointments ?></h4>
+            </div>
+          </a>
         </div>
       </div>
-
-      <div class="col-md-4">
-        <div class="card">
-          <div class="card-body">
-            <h5>Diagnosis</h5>
-            <a href="diagnosis.php" class="btn btn-warning">View Results</a>
-          </div>
-        </div>
-      </div>
-
-      
-
-      <div class="col-md-4">
-        <div class="card">
-          <div class="card-body">
-            <h5>Doctor Info</h5>
-            <p></p>
-            <a href="doctor.php" class="btn btn-info">Contact Doctor</a>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="mt-10">
-       <a href="Appointment.php" class="btn btn-primary btn-lg" >🚀 Book New Appointment</a>
     </div>
   </div>
-  <script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const badge = document.getElementById("notifBadge");
-    const notifyBtn = document.getElementById("notifyBtn");
+</div>
 
-    // Check notifications on page load and every 15s
-    function checkNotifications() {
-      fetch('get_patient_notifications.php')
-        .then(res => res.json())
-        .then(data => {
-          if (data.prescriptions.length > 0) {
-            badge.style.display = 'inline-block';
-            badge.innerText = data.prescriptions.length;
-          } else {
-            badge.style.display = 'none';
-          }
-        });
-    }
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const notifBell = document.getElementById("notifBell");
+  const notifCountBadge = document.getElementById("notifCount");
 
-    // Handle bell click
-    notifyBtn.addEventListener("click", () => {
-      fetch('get_patient_notifications.php')
-        .then(res => res.json())
-        .then(data => {
-          if (data.prescriptions.length > 0) {
-            let messages = `📦 ${data.prescriptions.length} new prescription(s)`;
+  // Update the notification badge
+  function updateBadge() {
+    fetch('get_unread_appointments_count.php')
+      .then(res => res.json())
+      .then(data => {
+        if (data.count > 0) {
+          notifCountBadge.textContent = data.count;
+          notifCountBadge.style.display = 'inline-block';
+        } else {
+          notifCountBadge.style.display = 'none';
+        }
+      });
+  }
 
-            // Show popup
-            Swal.fire({
-              title: 'New Medical Updates',
-              html: messages,
-              icon: 'info',
-              confirmButtonText: 'View'
-            }).then(result => {
-              if (result.isConfirmed) {
-                window.location.href = 'prescriptions.php';
-              }
-            });
+  // Show the alert with plain text names (no links)
+  function handleBellClick() {
+    fetch('get_unread_appointments.php')
+      .then(res => res.json())
+      .then(data => {
+        if (data.length > 0) {
+          // Display patient names as plain text (no <a>, no <br> as HTML)
+          let list = data.map(n => 
+            `${n.patient_name} (${n.appointment_date} @ ${n.time_slot})`
+          ).join('\n'); // <- changed to plain text
 
-            // Mark them as viewed
-            fetch('mark_notifications_viewed.php', {
-              method: 'POST'
-            }).then(() => {
-              badge.style.display = 'none'; // remove badge immediately
-            });
-          } else {
-            Swal.fire('No new updates!', '', 'info');
-          }
-        });
-    });
+          Swal.fire({
+            title: `🔔 ${data.length} new appointment(s)`,
+            text: list, // <- changed from html: to text:
+            icon: 'info',
+            showCancelButton: true,
+            confirmButtonText: 'Go to Appointments',
+            cancelButtonText: 'Later'
+          }).then(result => {
+            if (result.isConfirmed) {
+              window.location.href = 'appointments.php';
+            }
+          });
 
-    // Start checking
-    checkNotifications();
-    setInterval(checkNotifications, 15000);
-  });
+          // Mark appointments as viewed after showing
+          fetch('mark_appointments_viewed.php', { method: 'POST' });
+        } else {
+          Swal.fire({
+            title: 'No new appointments',
+            icon: 'info',
+            timer: 2000,
+            showConfirmButton: false
+          });
+        }
+
+        notifCountBadge.style.display = 'none'; // Hide badge after check
+      });
+  }
+
+  // Initial badge check
+  updateBadge();
+
+  // Periodic refresh every 15s
+  setInterval(updateBadge, 15000);
+
+  // Attach bell click listener
+  if (notifBell) {
+    notifBell.addEventListener("click", handleBellClick);
+  }
+});
 </script>
 
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 
 </body>
 </html>

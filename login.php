@@ -1,5 +1,5 @@
 <?php
-session_name("patient_session");
+session_name("doctor_session");
 session_start();
 require 'db.php';
 
@@ -11,23 +11,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         die('Please enter both email and password.');
     }
 
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ? AND role = 'patient'");
+    // Check user with role=doctor
+    $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ? AND role = 'doctor'");
     $stmt->execute([$email]);
     $user = $stmt->fetch();
 
     if ($user && $user['password'] === $password) {
-        // Clear doctor session if exists
-        unset($_SESSION['doctor_id']);
-        unset($_SESSION['doctor_name']);
-
-        $_SESSION['patient_id'] = $user['id'];
-        $_SESSION['patient_name'] = $user['fullname'];
-        $_SESSION['role'] = 'patient';
+        $_SESSION['doctor_id'] = $user['id'];
+        $_SESSION['doctor_name'] = $user['fullname'];
+        $_SESSION['role'] = 'doctor';
 
         header("Location: dashboard.php");
         exit();
     } else {
-        echo "<script>alert('Invalid patient credentials.'); window.location.href='login.html';</script>";
+        echo "<script>alert('Invalid doctor credentials.'); window.location.href='login.html';</script>";
         exit();
     }
 }
