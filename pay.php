@@ -92,7 +92,7 @@ if (!$appointment) {
 
         <div class="mb-3">
             <label>Amount Paid (KES):</label>
-            <input type="number" name="amount" class="form-control" value="2000" required>
+            <input type="number" name="amount" class="form-control" value="10" required>
         </div>
 
         <div class="mb-3">

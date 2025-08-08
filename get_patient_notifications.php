@@ -1,4 +1,6 @@
 <?php
+session_name("patient_session");
+
 session_start();
 require 'db.php';
 header('Content-Type: application/json');

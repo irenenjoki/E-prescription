@@ -2,8 +2,8 @@
 $consumerKey = "xnZ0ceAgXvAvg2aY0G4FOg9GhRSuZHb0nuu0ZizBHQAeySIl"; // from you
 $consumerSecret = "d5Dk2v2VPHcY4r2JrDs5lo0oOMYfWKgZanDEr7w33kVlrS8bUCWbkShNdPMkgOcJ"; // from you
 $shortCode = '6502529';
-$confirmationUrl = 'https://yourdomain.com/confirmation.php';
-$validationUrl = 'https://yourdomain.com/validation.php';
+$confirmationUrl = 'https://e-prescription.onrender.com/confirmation.php';
+$validationUrl = 'https://e-prescription.onrender.com/validation.php';
 
 // Get access token
 $credentials = base64_encode("$consumerKey:$consumerSecret");

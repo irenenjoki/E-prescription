@@ -189,49 +189,50 @@ $patientName = $user ? htmlspecialchars($user['fullname']) : 'Patient';
   </div>
    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    const dobInput = document.getElementById('dob');
-    const ageInput = document.getElementById('age');
-
-    dobInput.addEventListener('change', function () {
-      const dob = new Date(this.value);
-      const today = new Date();
-      let age = today.getFullYear() - dob.getFullYear();
-      const m = today.getMonth() - dob.getMonth();
-      if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
-      ageInput.value = age >= 0 ? age : '';
+   document.addEventListener('DOMContentLoaded', function () {
+      const dobInput = document.getElementById('dob');
+      const ageInput = document.getElementById('age');
+      dobInput.addEventListener('change', function () {
+        const dob = new Date(this.value);
+        const today = new Date();
+        let age = today.getFullYear() - dob.getFullYear();
+        const m = today.getMonth() - dob.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+        ageInput.value = age >= 0 ? age : '';
+      });
     });
+ document.getElementById('appointmentForm').addEventListener('submit', function (e) {
+  e.preventDefault();
 
-    document.getElementById('appointmentForm').addEventListener('submit', function (e) {
-      e.preventDefault();
+  const formData = new FormData(this);
 
-      const formData = new FormData(this);
-
-      fetch('add_appointment.php', {
-        method: 'POST',
-        body: formData
-      })
-        .then(response => response.json())
-        .then(data => {
-          if (data.status === 'success') {
-            Swal.fire({
-              title: 'Appointment Sent Successfully',
-              text: 'Your appointment request has been received. We will contact you soon.',
-              icon: 'success',
-              confirmButtonText: 'OK'
-            });
-          } else {
-            Swal.fire('Error', data.message || 'Failed to schedule appointment.', 'error');
-          }
-        })
-        .catch(error => {
-          console.error('Error:', error);
-          Swal.fire('Error', 'Something went wrong. Please try again.', 'error');
-        });
-    });
+  fetch('add_appointment.php', {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.status === 'success') {
+      Swal.fire({
+        title: 'Redirecting to Payment',
+        text: 'Please complete the payment to confirm your appointment.',
+        icon: 'info',
+        timer: 2500,
+        showConfirmButton: false
+      }).then(() => {
+        window.location.href = data.redirect_url;
+      });
+    } else {
+      Swal.fire('Error', data.message || 'Failed to schedule appointment.', 'error');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    Swal.fire('Error', 'Something went wrong. Please try again.', 'error');
   });
-</script>
+});
 
+</script>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
