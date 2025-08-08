@@ -11,7 +11,7 @@ RUN a2enmod rewrite
 WORKDIR /var/www/html
 
 # Copy project files to container
-COPY ./SYLVIA/ /var/www/html/
+COPY ./var/www/html/
 
 # Set correct permissions
 RUN chown -R www-data:www-data /var/www/html \
